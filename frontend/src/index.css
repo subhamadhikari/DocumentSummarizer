@@ -12,10 +12,19 @@
 
 @layer utilities{
     .rightPanel{
-        @apply md:flex-[0.85] bg-rightPanel px-2 py-2 flex-1 h-screen
+        @apply md:flex-[0.85] bg-rightPanel flex-1 h-screen relative p-5
     }
 
     .leftPanel{
-        @apply md:flex-[0.15] md:block bg-leftPanel px-2 py-2 hidden h-screen
+        @apply md:flex-[0.15] md:block bg-leftPanel p-10 hidden h-screen
     }
+
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+
+    .no-scrollbar {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+      }
 }
