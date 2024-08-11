@@ -12,11 +12,23 @@
 
 @layer utilities{
     .rightPanel{
-        @apply md:flex-[0.85] bg-rightPanel flex-1 h-screen relative p-5
+        @apply md:flex-[1] bg-rightPanel flex-1 h-screen relative p-5
     }
 
     .leftPanel{
-        @apply md:flex-[0.15] md:block bg-leftPanel p-10 hidden h-screen
+        @apply md:flex-[0.15] bg-leftPanel hidden h-screen md:block p-5
+    }
+    
+    .inactive{
+        position: fixed;
+        top: 0;
+        left: -100%;
+        transition: 850ms;
+    }
+
+    .active{
+        left: 0%;
+        transition: 350ms;   
     }
 
     .no-scrollbar::-webkit-scrollbar {
