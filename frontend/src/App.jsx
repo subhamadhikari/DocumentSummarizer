@@ -1,6 +1,7 @@
 import React,{useState} from 'react'
 import MessageBox from './components/MessageBox'
 import SessionCard from './components/SessionCard'
+import SearchBar from './components/SearchBar'
 
 const App = () => {
 
@@ -60,9 +61,7 @@ const App = () => {
               <MessageBox type={'ai'} text={'This is an ai message! Sorry I am unable to do so give correct text'}/>
               <MessageBox type={'human'} text={"This is a human message. Hello! How are you? Give me all the details"}/>
             </div>
-            <div className=' h-[10%] flex justify-center items-center'>
-                <input type='text' placeholder='What do you want to ask me?' className='focus:ring-2 focus:ring-blue-500 focus:outline-none w-1/2 leading-6 text-slate-50 placeholder-slate-400 py-2 pl-10 ring-1 ring-slate-200 shadow-sm rounded-full p-2 bg-text-box'/>
-            </div>
+            <SearchBar/>
         </div>
     </main>
   )
