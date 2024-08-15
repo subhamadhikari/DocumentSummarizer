@@ -5,12 +5,36 @@ import SearchBar from './components/SearchBar'
 
 const App = () => {
 
+  const api = import.meta.env.VITE_BACKEND_URL;
+
   const [sidebar, setSidebar] = useState(true)
   const toggleSidebar = () => {
     setSidebar(!sidebar)
   }
+
+  const user = {
+    first_name:"subham",
+    last_name:"adhikari",
+    password:"asasa",
+    email:"subham@gmail.com",
+  }
+
+  const testApi = async () => {
+    const res = await fetch(`${api}/register`,{
+      method:"POST",
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body:JSON.stringify(user)
+    })
+
+    const data = await res.json()
+    console.log(data)
+  }
+
   return (
     <main className='flex justify-center items-center'>
+      {console.log(api+" ---> api url")}
         <div className={`leftPanel ${sidebar ? 'active' : 'inactive' }`}>
           <div className='flex justify-between items-center p-3'>
             <svg xmlns="http://www.w3.org/2000/svg" onClick={toggleSidebar} fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-8 transition-all hover:cursor-pointer">
@@ -60,6 +84,7 @@ const App = () => {
               <MessageBox type={'human'} text={"This is a human message. Hello! How are you? Give me all the details"}/>
               <MessageBox type={'ai'} text={'This is an ai message! Sorry I am unable to do so give correct text'}/>
               <MessageBox type={'human'} text={"This is a human message. Hello! How are you? Give me all the details"}/>
+              {/* <button type='file'>Test</button> */}
             </div>
             <SearchBar/>
         </div>
