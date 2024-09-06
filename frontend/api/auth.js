@@ -13,3 +13,15 @@ export const signup = async(user) => {
     const data = await response.json()
     return data
 }
+
+export const signin = async(user) =>{
+    const url = api + "/signin"
+    const response = await fetch(url,{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body:JSON.stringify(user)
+        
+    })
+}

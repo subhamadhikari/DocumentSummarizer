@@ -1,5 +1,6 @@
 import React,{useState} from 'react'
 import PasswordChecklist from 'react-password-checklist'
+import { signup,signin } from '../../api/auth'
 
 const Login = () => {
 
@@ -24,6 +25,21 @@ const Login = () => {
 
     const changePageLayout = () => {
         setSignUp((prev) => !prev)
+    }
+
+    const register = async() =>{
+        if(!isPasswordValid){
+            alert("Password requirement is not fulfilled!")
+            return
+        }
+        const response = await signup({email:authInfo.email,password:authInfo.password})
+        console.log(response)
+    }
+
+    const login = async(e) => {
+        e.preventDefault()
+        const response = await signin({email:authInfo.email,password:authInfo.password})
+        console.log(response)
     }
 
     return (
@@ -69,10 +85,10 @@ const Login = () => {
                     {
                         signUp ? 
                         (
-                            <button type='submit' onClick={()=>{alert(JSON.stringify(authInfo))}} className='text-white bg-green-700 w-1/2 m-auto p-1'>Sign Up</button>
+                            <button type='submit' onClick={register} className='text-white bg-green-700 w-1/2 m-auto p-1'>Sign Up</button>
                         )
                         :(
-                            <button type='submit' className='text-white bg-green-700 w-1/2 m-auto p-1'>Sign In</button>
+                            <button type='submit' onClick={login} className='text-white bg-green-700 w-1/2 m-auto p-1'>Sign In</button>
                         )
                     }
                     <button type='submit' className='text-white bg-green-700 w-1/2 m-auto p-1'>Sign In with Google</button>
