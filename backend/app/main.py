@@ -23,6 +23,8 @@ from chat.testchat import user_input
 
 import google.generativeai as genai
 
+from fastapi.security import OAuth2PasswordRequestForm
+
 
 
 from langserve import add_routes
@@ -33,7 +35,11 @@ from chat.testchat import user_input
 
 from utils.mychat import prepare_chatbot_over_subset
 from utils.chatbot import Chatbot
-from utils.encrypt import encrypt_pass,verify_pass
+from utils.encrypt import encrypt_pass,verify_pass,create_access_token
+
+from uuid import uuid4
+
+from controller.user_controller import get_current_user,GetCurrentUser
 
 
 app = FastAPI()
@@ -57,6 +63,14 @@ def db_session():
     finally:
         session.close()
 
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    
+    class Config:
+        orm_mode = True
+
 @app.post("/signup")
 def register(user:userschema.UserSchema,session:Session = Depends(db_session)):
     print("Subham Adhikari!")
@@ -73,17 +87,43 @@ def register(user:userschema.UserSchema,session:Session = Depends(db_session)):
     return {"message":"user created successfully","status":200}
 
 @app.post("/signin")
-def signin(user:userschema.UserSchema,session:Session = Depends(db_session)):
-    statement = select(usermodel.User).filter_by(email=user.email)
+def signin(form_data:OAuth2PasswordRequestForm = Depends(),session:Session = Depends(db_session)):
+    statement = select(usermodel.User).filter_by(email=form_data.username)
     user_obj = session.scalars(statement).all()
     if(len(user_obj) == 0) :
         print("not found the user")
         return {"message":"user not found!","status":404}
     else:
         user_obj = user_obj[0]
-    isValidUser = verify_pass(user_obj.encrypt_password,user.password,user_obj.salt)
+    isValidUser = verify_pass(user_obj.encrypt_password,form_data.password,user_obj.salt)
     print("passwrd correct :",isValidUser)
-    return {"message":"user found!"}
+    return {
+        "access_token":create_access_token(user_obj.email),
+        "token_type":"Bearer"
+    }
+
+
+currentuser = GetCurrentUser(db=Depends(db_session))
+
+@app.get('/getCurrentUser', summary='Get details of currently logged in user',response_model=userschema.UserResponse)
+async def get_me(user:userschema.UserResponse = Depends(currentuser)):
+    return user
+# @app.get('/getCurrentUser', summary='Get details of currently logged in user',response_model=userschema.UserResponse)
+# async def get_me(user:userschema.UserResponse = Depends(get_current_user)):
+#     return user
+
+# @app.post("/signin")
+# def signin(user:userschema.UserSchema,session:Session = Depends(db_session)):
+#     statement = select(usermodel.User).filter_by(email=user.email)
+#     user_obj = session.scalars(statement).all()
+#     if(len(user_obj) == 0) :
+#         print("not found the user")
+#         return {"message":"user not found!","status":404}
+#     else:
+#         user_obj = user_obj[0]
+#     isValidUser = verify_pass(user_obj.encrypt_password,user.password,user_obj.salt)
+#     print("passwrd correct :",isValidUser)
+#     return {"message":"user found!"}
 
 @app.post("/submitdocument")
 async def submitDoc(document:UploadFile,session:Session = Depends(db_session)):
