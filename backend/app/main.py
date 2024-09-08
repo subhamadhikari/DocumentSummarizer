@@ -86,25 +86,31 @@ def register(user:userschema.UserSchema,session:Session = Depends(db_session)):
         return {"message":"User creation failed!","status":500,"error":f"{e.__dict__['orig']}"}
     return {"message":"user created successfully","status":200}
 
-@app.post("/signin")
+@app.post("/login")
 def signin(form_data:OAuth2PasswordRequestForm = Depends(),session:Session = Depends(db_session)):
     statement = select(usermodel.User).filter_by(email=form_data.username)
     user_obj = session.scalars(statement).all()
+
     if(len(user_obj) == 0) :
         print("not found the user")
         return {"message":"user not found!","status":404}
     else:
         user_obj = user_obj[0]
     isValidUser = verify_pass(user_obj.encrypt_password,form_data.password,user_obj.salt)
-    print("passwrd correct :",isValidUser)
+
+    if not isValidUser:
+        return{
+            "message":"Email or password mismatch"
+        }
+    
     return {
         "access_token":create_access_token(user_obj.email),
         "token_type":"Bearer"
     }
+db_gen = db_session()
+db = next(db_gen)
 
-
-currentuser = GetCurrentUser(db=Depends(db_session))
-
+currentuser = GetCurrentUser(db=db)
 @app.get('/getCurrentUser', summary='Get details of currently logged in user',response_model=userschema.UserResponse)
 async def get_me(user:userschema.UserResponse = Depends(currentuser)):
     return user
@@ -185,3 +191,7 @@ async def mychat(item:Item):
 #     input_type=ChatRequest,
 #     config_keys=["metadata", "configurable", "tags"],
 # )
+
+@app.on_event("shutdown")
+def shutdown_event():
+    next(db_gen, None) 
