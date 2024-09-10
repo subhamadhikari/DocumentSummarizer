@@ -1,6 +1,10 @@
 import React,{useState} from 'react'
 import PasswordChecklist from 'react-password-checklist'
 import { signup,signin } from '../../api/auth'
+import { useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { jwtDecode } from "jwt-decode";
+import Popup from '../components/Popup'
 
 const Login = () => {
 
@@ -11,6 +15,12 @@ const Login = () => {
         password:"",
         confirmPassword:""
     })
+    const [status, setStatus] = useState({
+        status_code:200,
+        status_message:""
+    })
+
+    const navigate = useNavigate()
 
     const handleChange = (event) => {
         const value = event.target.value
@@ -39,8 +49,39 @@ const Login = () => {
     const login = async(e) => {
         e.preventDefault()
         const response = await signin({email:authInfo.email,password:authInfo.password})
+        // const data = await response.json()
+
+        console.log("in response::",response)
+        setStatus({status_code:response.status,status_message:response.detail})
+
+        if(response.status_code == 200){
+            navigate("/")
+        }
         console.log(response)
     }
+
+    const isTokenExpired = (token) => {
+        try {
+            const decoded = jwtDecode(token)
+            const currentTime = Date.now() / 1000
+            return decoded.exp < currentTime
+        } catch (error) {
+            return true
+        }
+    }
+
+    useEffect(() => {
+        let token = localStorage.getItem("token")
+        if(token && token !== null){
+            const tokenExpired = isTokenExpired(token)
+            if(tokenExpired){
+                localStorage.removeItem("token")
+            }else{
+                navigate("/")
+            }
+        }
+    }, [])
+    
 
     return (
         <div className='bg-slate-800 h-screen p-6 flex justify-center items-center'>
@@ -98,8 +139,13 @@ const Login = () => {
 
                 </form>
             </div>
+
+            {status.status_code !== 200 && (
+                <Popup message={status.status_message}/>
+            )}
         </div>
     )
     }
+
 
 export default Login

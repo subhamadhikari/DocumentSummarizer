@@ -1,15 +1,41 @@
-import React,{useState} from 'react'
+import React,{useState,useEffect} from 'react'
+import { NavLink,useNavigate} from 'react-router-dom'
 import MessageBox from './components/MessageBox'
 import SessionCard from './components/SessionCard'
 import SearchBar from './components/SearchBar'
+import { chatAI } from '../api/chat'
+import { useSelector } from 'react-redux'
+import { getCurrentUser } from '../api/user'
+import loginLogo from "./assets/login.png"
 
 const App = () => {
+
+  const {messages,isLoading,isError} = useSelector((state) => state.aiMessage)
 
   const api = import.meta.env.VITE_BACKEND_URL;
 
   const [sidebar, setSidebar] = useState(true)
+  const [chat, setChat] = useState([])
+  const [loggedUser, setLoggedUser] = useState("")
+  const [logo, setLogo] = useState("")
+  const [dropDown, setDropDown] = useState(false)
+  
+  const navigate = useNavigate()
+
+  const pushMessage = (msg) => {
+    setChat(msg)
+  } 
   const toggleSidebar = () => {
     setSidebar(!sidebar)
+  }
+
+  const toggleDropdown = () => {
+    setDropDown((state) => !state)
+  }
+
+  const logout = () => {
+    localStorage.removeItem("token")
+    navigate("/login")
   }
 
   const user = {
@@ -20,7 +46,7 @@ const App = () => {
   }
 
   const testApi = async () => {
-    const res = await fetch(`${api}/register`,{
+    const res = await fetch(`${api}/yolo`,{
       method:"POST",
       headers: {
         'Content-Type': 'application/json',
@@ -31,6 +57,25 @@ const App = () => {
     const data = await res.json()
     console.log(data)
   }
+
+  useEffect(() => {
+    let signedUser = ""
+    async function getUser() {
+      signedUser = await getCurrentUser()
+      setLoggedUser(signedUser)
+    }
+    getUser()
+  }, [])
+
+  useEffect(() => { 
+    function extractLetter(){
+      let chr = loggedUser?.charAt(0)
+      setLogo(chr?.toUpperCase())
+    }
+    extractLetter()
+  }, [loggedUser])
+  
+  
 
   return (
     <main className='flex justify-center items-center'>
@@ -71,22 +116,68 @@ const App = () => {
                 }
                 DocumentGPT
               </p>
-              <div class="font-semibold text-xl flex items-center justify-center w-12 h-12 bg-purple-500 rounded-full text-white">
-                A
+              {
+                loggedUser?.length == 0 ? 
+                (  <div className='flex flex-col items-center justify-center p-4'>
+                    <img src={loginLogo} className='h-8 '/>
+                    <p className='text-center w-full mt-1'><NavLink to={"/login"}>Login</NavLink></p>
+                  </div> ) :
+                ( 
+                  <div onClick={toggleDropdown} className="relative font-semibold text-xl flex items-center justify-center w-12 h-12 bg-purple-500 rounded-full text-white cursor-pointer">
+                    {logo}
+                  </div> )
+              }
+
+              {
+                dropDown && (
+                  <div class="absolute right-0 top-16 bg-white divide-gray-100 rounded-lg shadow w-44 dark:bg-gray-700">
+                      <ul class="py-2 text-sm text-gray-700 dark:text-gray-200" aria-labelledby="dropdownHoverButton">
+                        <li>
+                          <a href="#" className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">Save Chat</a>
+                        </li>
+                        <li>
+                          <a href="#" onClick={logout} className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">Logout</a>
+                        </li>
+                      </ul>
+                  </div>
+                )
+              }
+
               </div>
-            </div>
             <div className='h-[80%] no-scrollbar overflow-auto p-10 bg-rightPanel'>
-              <MessageBox text={'This is a human message. Hello! How are you? Give me all the details'}/>
+              {/* <MessageBox text={'This is a human message. Hello! How are you? Give me all the details'}/>
               <MessageBox type={'ai'} text={'This is an ai message! Sorry I am unable to do so give correct text'}/>
               <MessageBox type={'ai'} text={'This is an ai message! Sorry I am unable to do so give correct text'}/>
               <MessageBox type={'human'} text={"This is a human message. Hello! How are you? Give me all the details"}/>
               <MessageBox type={'ai'} text={'This is an ai message! Sorry I am unable to do so give correct text'}/>
               <MessageBox type={'human'} text={"This is a human message. Hello! How are you? Give me all the details"}/>
               <MessageBox type={'ai'} text={'This is an ai message! Sorry I am unable to do so give correct text'}/>
-              <MessageBox type={'human'} text={"This is a human message. Hello! How are you? Give me all the details"}/>
-              {/* <button type='file'>Test</button> */}
+              <MessageBox type={'human'} text={"This is a human message. Hello! How are you? Give me all the details"}/> */}
+              {
+                messages && messages.map((msg,idx)=>{
+                  return(
+                  <MessageBox key={idx} type={msg.tag} text={msg.text}/>
+                  )
+                })
+              }
+              {/* {
+                chat.map((msg,index)=>{
+                  if ((index+1)%2!=0) {
+                    return(
+                      <MessageBox type={'human'} text={msg}/>
+                    )
+                  }else{
+                    return(
+                      <MessageBox type={'ai'} text={msg}/>
+                    )
+                  }
+                })
+              } */}
+              {/* <button type='submit' onClick={()=>{
+                chatAI("http://127.0.0.1:8000","What is the summary?")
+              }}>Test</button> */}
             </div>
-            <SearchBar/>
+            <SearchBar sendDataToParent={pushMessage}/>
         </div>
     </main>
   )
