@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Depends,HTTPException,Request,Response,File,UploadFile
+from fastapi import FastAPI,Depends,HTTPException,Request,Response,File,UploadFile,status
 from typing import Annotated
 from fastapi.middleware.cors import CORSMiddleware
 import io
@@ -9,8 +9,8 @@ from pydantic import BaseModel
 
 from starlette.requests import Request
 
-from database.schemas import userschema
-from database.models import usermodel
+from database.schemas import userschema,chatschema
+from database.models import usermodel,chatmodel
 from database.configurations import SessionLocal,engine,Base
 
 from sqlalchemy.orm import Session
@@ -93,17 +93,22 @@ def signin(form_data:OAuth2PasswordRequestForm = Depends(),session:Session = Dep
 
     if(len(user_obj) == 0) :
         print("not found the user")
-        return {"message":"user not found!","status":404}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User could not be found !"
+        )
     else:
         user_obj = user_obj[0]
     isValidUser = verify_pass(user_obj.encrypt_password,form_data.password,user_obj.salt)
 
     if not isValidUser:
-        return{
-            "message":"Email or password mismatch"
-        }
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Email or password is incorrect"
+        )
     
     return {
+        "status_code":status.HTTP_200_OK,
         "access_token":create_access_token(user_obj.email),
         "token_type":"Bearer"
     }
@@ -176,6 +181,27 @@ async def mychat(item:Item):
     # result = user_input(item.question)
 
     return {"result":response}
+
+
+
+#  ------------------  Saving chats -------------------- #
+@app.post("/pushmessage")
+async def savechat(message:chatschema.ChatSchema,user:userschema.UserResponse = Depends(currentuser),session:Session = Depends(db_session)):
+    print(message)
+    print("-----------||||||-----------")
+    print(user)
+
+    try:
+        chat = chatmodel.Chat(chat_session="002",user_id=user.id,
+                              human_msg=message.humanmsg,ai_msg=message.aimsg,timestamp=message.timestamp)
+        session.add(chat)
+        session.commit()
+        session.refresh(chat)
+    except Exception as e:
+        print(e)
+
+
+
 # async def mychat(item:Item):
 #     result = user_input(item.question)
 #     print(result)
