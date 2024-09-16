@@ -144,6 +144,7 @@ async def submitDoc(document:UploadFile,session:Session = Depends(db_session)):
     return {"message":"document parsed successfully"}
 
 
+# new chat
 @app.post("/startchat")
 async def startchat(document:UploadFile,session:Session = Depends(db_session)):
     global session_id_temp
@@ -156,7 +157,8 @@ async def startchat(document:UploadFile,session:Session = Depends(db_session)):
         session_id_temp = session_id
 
         content = await document.read()
-        parse_pdf(io.BytesIO(content),document.filename)
+        parse_pdf(io.BytesIO(content),document.filename,session_id_temp)
+        app.session = session_id_temp
         print("chat system",document.filename)
 
         # user_input("Give me the summary?")
@@ -167,7 +169,6 @@ async def startchat(document:UploadFile,session:Session = Depends(db_session)):
         print(f"Error: {str(e)}")
         return {"error": str(e)}
     
-
 class Item(BaseModel):
     question: str
     
@@ -182,6 +183,20 @@ async def mychat(item:Item):
 
     return {"result":response}
 
+
+# old chat
+# ,response_model=chatschema.Chat
+@app.get("/loadchat")
+async def loadchat(chat_session:str,user:userschema.UserResponse=Depends(currentuser),db_session:Session=Depends(db_session)):
+    chat = chatmodel.Chat
+    statement = select(chat).where(chat.chat_session==chat_session,chat.user_id==user.id).order_by(chat.timestamp)
+    result = db_session.execute(statement)
+    print("loaded chat:::")
+    chats = []
+    for chat in result.scalars().all():
+        chats.append(chatschema.Chat(humanmsg=chat.human_msg,aimsg=chat.ai_msg))
+    print(chats)
+    return chats
 
 
 #  ------------------  Saving chats -------------------- #
