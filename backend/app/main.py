@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Depends,HTTPException,Request,Response,File,UploadFile,status
+from fastapi import FastAPI,Depends,HTTPException,Request,Response,File,UploadFile,status,BackgroundTasks
 from typing import Annotated
 from fastapi.middleware.cors import CORSMiddleware
 import io
@@ -48,7 +48,7 @@ Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Adjust this to specify which origins are allowed
+    allow_origins=["*"],  # Adjust this to specify which origins are allowed
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods (GET, POST, OPTIONS, etc.)
     allow_headers=["*"],  # Allow all headers
@@ -112,12 +112,23 @@ def signin(form_data:OAuth2PasswordRequestForm = Depends(),session:Session = Dep
         "access_token":create_access_token(user_obj.email),
         "token_type":"Bearer"
     }
+
+
+@app.post("/logout")
+def logout():
+    if hasattr(app,"user"):
+        del app.user
+    
+    if hasattr(app,"session"):
+        del app.session
+
 db_gen = db_session()
 db = next(db_gen)
 
 currentuser = GetCurrentUser(db=db)
 @app.get('/getCurrentUser', summary='Get details of currently logged in user',response_model=userschema.UserResponse)
 async def get_me(user:userschema.UserResponse = Depends(currentuser)):
+    app.user = user
     return user
 # @app.get('/getCurrentUser', summary='Get details of currently logged in user',response_model=userschema.UserResponse)
 # async def get_me(user:userschema.UserResponse = Depends(get_current_user)):
@@ -149,17 +160,23 @@ async def submitDoc(document:UploadFile,session:Session = Depends(db_session)):
 async def startchat(document:UploadFile,session:Session = Depends(db_session)):
     global session_id_temp
     try:
-
-        session_id,chatbot = await prepare_chatbot_over_subset()
+        session_id = uuid.uuid4()
         print(session_id,"--new session id")
-        print(chatbot,"--chatbot")
-        app.chatbot = chatbot
-        session_id_temp = session_id
 
-        content = await document.read()
-        parse_pdf(io.BytesIO(content),document.filename,session_id_temp)
+        
+        session_id_temp = session_id
         app.session = session_id_temp
+        content = await document.read()
+
+        parse_pdf(io.BytesIO(content),document.filename,session_id_temp)
+
+        chatbot = await prepare_chatbot_over_subset(session_id)
+
+        app.chatbot = chatbot
+        print(chatbot,"--chatbot")
         print("chat system",document.filename)
+
+        app.db_session = session
 
         # user_input("Give me the summary?")
         # user_input("Hey!")
@@ -174,12 +191,20 @@ class Item(BaseModel):
     
 
 @app.post("/mychat")
-async def mychat(item:Item):
+async def mychat(item:Item,background_tasks:BackgroundTasks):
+    print("first:::call --- mychat")
     conversation_id = uuid.uuid4()
+    # session_id = app.session
     if not hasattr(app, 'chatbot'):
         raise HTTPException(status_code=405, detail="Chatbot not loaded..")
     response = app.chatbot.conversational_chat(item.question,conversation_id,session_id_temp)
     # result = user_input(item.question)
+
+    if response is not None:
+        message = chatschema.ChatSchema(humanmsg=item.question,aimsg=response,session=str(session_id_temp),timestamp="2023-09-12")
+
+        if hasattr(app,"user"):
+            background_tasks.add_task(savechat,message,app.user,app.db_session)
 
     return {"result":response}
 
@@ -200,20 +225,27 @@ async def loadchat(chat_session:str,user:userschema.UserResponse=Depends(current
 
 
 #  ------------------  Saving chats -------------------- #
-@app.post("/pushmessage")
-async def savechat(message:chatschema.ChatSchema,user:userschema.UserResponse = Depends(currentuser),session:Session = Depends(db_session)):
-    print(message)
-    print("-----------||||||-----------")
-    print(user)
+# @app.post("/pushmessage")
+# @app.middleware("http")
+async def savechat(message:chatschema.ChatSchema=None,user:userschema.UserSchema = None,session:Session = None):
+    # print(message)
+    # print("-----------||||||-----------")
+    # print(user.id)
 
-    try:
-        chat = chatmodel.Chat(chat_session="002",user_id=user.id,
-                              human_msg=message.humanmsg,ai_msg=message.aimsg,timestamp=message.timestamp)
-        session.add(chat)
-        session.commit()
-        session.refresh(chat)
-    except Exception as e:
-        print(e)
+        print("user:::in save chat",user)
+
+        try:
+            if hasattr(app,"user"):
+                print("second:::call --- middleware")
+                chat = chatmodel.Chat(chat_session=app.session,user_id=user.id,
+                                    human_msg=message.humanmsg,ai_msg=message.aimsg,timestamp=message.timestamp)
+                session.add(chat)
+                session.commit()
+                session.refresh(chat)
+        except Exception as e:
+            print(e)
+
+        print("Execution finished!! in the background")
 
 
 
