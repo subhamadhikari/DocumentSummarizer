@@ -7,6 +7,7 @@ import { chatAI } from '../api/chat'
 import { useSelector } from 'react-redux'
 import { getCurrentUser } from '../api/user'
 import loginLogo from "./assets/login.png"
+import { loadChat } from '../api/chat'
 
 const App = () => {
 
@@ -19,6 +20,7 @@ const App = () => {
   const [loggedUser, setLoggedUser] = useState("")
   const [logo, setLogo] = useState("")
   const [dropDown, setDropDown] = useState(false)
+  const [chatSession, setChatSession] = useState([{}])
   
   const navigate = useNavigate()
 
@@ -65,6 +67,14 @@ const App = () => {
       setLoggedUser(signedUser)
     }
     getUser()
+
+    async function getChats() {
+      const data = await loadChat()
+      setChatSession(data) 
+      console.log("prev::",data)    
+    }
+    getChats()
+
   }, [])
 
   useEffect(() => { 
@@ -91,6 +101,7 @@ const App = () => {
           </div>
           <p className='w-full p-3 font-medium text-xl'>Chat Sessions</p>
           <div className='flex flex-col justify-start items-center p-2 h-[70vh] no-scrollbar overflow-auto'>
+            {/* <SessionCard/>
             <SessionCard/>
             <SessionCard/>
             <SessionCard/>
@@ -99,8 +110,10 @@ const App = () => {
             <SessionCard/>
             <SessionCard/>
             <SessionCard/>
-            <SessionCard/>
-            <SessionCard/>
+            <SessionCard/> */}
+            {chatSession.map((chatsession,idx) => (
+              <SessionCard title={chatsession.doc_title} session={chatsession.chat_session}/>
+            ))}
           </div>
         </div>
         <div className='rightPanel'>

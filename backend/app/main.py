@@ -13,9 +13,9 @@ from database.schemas import userschema,chatschema
 from database.models import usermodel,chatmodel
 from database.configurations import SessionLocal,engine,Base
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session,aliased
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select
+from sqlalchemy import select,func
 
 from chat.chat import parse_pdf
 
@@ -128,8 +128,14 @@ db = next(db_gen)
 currentuser = GetCurrentUser(db=db)
 @app.get('/getCurrentUser', summary='Get details of currently logged in user',response_model=userschema.UserResponse)
 async def get_me(user:userschema.UserResponse = Depends(currentuser)):
-    app.user = user
-    return user
+    # app.user = user
+    # return user
+    if user:
+        app.user = user
+        return user
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
+    
 # @app.get('/getCurrentUser', summary='Get details of currently logged in user',response_model=userschema.UserResponse)
 # async def get_me(user:userschema.UserResponse = Depends(get_current_user)):
 #     return user
@@ -173,9 +179,11 @@ async def startchat(document:UploadFile,session:Session = Depends(db_session)):
         chatbot = await prepare_chatbot_over_subset(session_id)
 
         app.chatbot = chatbot
+        app.doc_title=document.filename
         print(chatbot,"--chatbot")
         print("chat system",document.filename)
 
+        # change made here
         app.db_session = session
 
         # user_input("Give me the summary?")
@@ -201,7 +209,7 @@ async def mychat(item:Item,background_tasks:BackgroundTasks):
     # result = user_input(item.question)
 
     if response is not None:
-        message = chatschema.ChatSchema(humanmsg=item.question,aimsg=response,session=str(session_id_temp),timestamp="2023-09-12")
+        message = chatschema.ChatSchema(humanmsg=item.question,aimsg=response,session=str(session_id_temp),timestamp="2023-09-12",)
 
         if hasattr(app,"user"):
             background_tasks.add_task(savechat,message,app.user,app.db_session)
@@ -223,6 +231,73 @@ async def loadchat(chat_session:str,user:userschema.UserResponse=Depends(current
     print(chats)
     return chats
 
+@app.get("/loadchatlist")
+# async def loadchatlist(user:userschema.UserResponse=Depends(currentuser),db_session:Session=Depends(db_session)):
+async def loadchatlist(db_session:Session=Depends(db_session)):
+    print("okay")
+    # return 2
+    try:
+        user = None
+        if app.user:
+            print("chatlist bhitra")
+            user = app.user
+            print(app.user)
+        else:
+            print("no user")
+            return 2
+        # Define the row number subquery
+        row_number_subquery = (
+            db_session.query(
+                chatmodel.Chat.chat_id,
+                chatmodel.Chat.chat_session,
+                chatmodel.Chat.user_id,
+                chatmodel.Chat.human_msg,
+                chatmodel.Chat.doc_title,
+                chatmodel.Chat.timestamp,
+                chatmodel.Chat.ai_msg,
+                func.row_number().over(
+                    partition_by=chatmodel.Chat.chat_session,  # Group by chat session
+                    order_by=chatmodel.Chat.chat_id  # Order by chat ID (or timestamp)
+                ).label("row_num")
+            )
+            .filter(chatmodel.Chat.user_id == user.id)  # Filter by current user
+            .subquery()
+        )
+
+        # Query to select only the first occurrence (row_num = 1) of each chat session
+        query = (
+            select(row_number_subquery)
+            .where(row_number_subquery.c.row_num == 1)
+        )
+
+        # Execute the query
+        result = db_session.execute(query).all()
+
+        # Process the result to create the chat list
+        chat_list = []
+        for row in result:
+            chat_data = {
+                "id": row[0],             # chat_id
+                "chat_session": row[1],    # chat_session
+                "user_id": row[2],         # user_id
+                "human_msg": row[3],       # human_msg
+                "doc_title": row[4],       # doc_title
+                "timestamp": row[5],       # timestamp
+                "ai_msg": row[6],          # ai_msg
+            }
+            chat_list.append(chat_data)
+
+        return chat_list
+
+    except SQLAlchemyError as e:
+        # Rollback the transaction if any error occurs
+        db_session.rollback()
+        # Log the error and raise an HTTP exception
+        print(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    finally:
+        db_session.close()
+
 
 #  ------------------  Saving chats -------------------- #
 # @app.post("/pushmessage")
@@ -238,7 +313,7 @@ async def savechat(message:chatschema.ChatSchema=None,user:userschema.UserSchema
             if hasattr(app,"user"):
                 print("second:::call --- middleware")
                 chat = chatmodel.Chat(chat_session=app.session,user_id=user.id,
-                                    human_msg=message.humanmsg,ai_msg=message.aimsg,timestamp=message.timestamp)
+                                    human_msg=message.humanmsg,ai_msg=message.aimsg,doc_title=app.doc_title,timestamp=message.timestamp)
                 session.add(chat)
                 session.commit()
                 session.refresh(chat)
