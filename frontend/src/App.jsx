@@ -4,6 +4,8 @@ import MessageBox from './components/MessageBox'
 import SessionCard from './components/SessionCard'
 import SearchBar from './components/SearchBar'
 import { chatAI } from '../api/chat'
+import ClipLoader from "react-spinners/ClipLoader";
+import MoonLoader from "react-spinners/MoonLoader"
 import { useSelector } from 'react-redux'
 import { getCurrentUser } from '../api/user'
 import loginLogo from "./assets/login.png"
@@ -11,7 +13,7 @@ import { loadChat } from '../api/chat'
 
 const App = () => {
 
-  const {messages,isLoading,isError} = useSelector((state) => state.aiMessage)
+  const {messages,isloading,isError,isOldChat} = useSelector((state) => state.aiMessage)
 
   const api = import.meta.env.VITE_BACKEND_URL;
 
@@ -38,26 +40,6 @@ const App = () => {
   const logout = () => {
     localStorage.removeItem("token")
     navigate("/login")
-  }
-
-  const user = {
-    first_name:"subham",
-    last_name:"adhikari",
-    password:"asasa",
-    email:"subham@gmail.com",
-  }
-
-  const testApi = async () => {
-    const res = await fetch(`${api}/yolo`,{
-      method:"POST",
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body:JSON.stringify(user)
-    })
-
-    const data = await res.json()
-    console.log(data)
   }
 
   useEffect(() => {
@@ -88,9 +70,9 @@ const App = () => {
   
 
   return (
-    <main className='flex justify-center items-center'>
+    <main className={`flex justify-center items-center relative`}>
       {console.log(api+" ---> api url")}
-        <div className={`leftPanel ${sidebar ? 'active' : 'inactive' }`}>
+        <div className={`leftPanel ${sidebar ? 'active' : 'inactive' } ${isloading==true ? 'bg-gray-500 bg-opacity-75 transition-opacity z-10':'bg-gray-100 bg-opacity-75 transition-opacity z-10'}`}>
           <div className='flex justify-between items-center p-3'>
             <svg xmlns="http://www.w3.org/2000/svg" onClick={toggleSidebar} fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-8 transition-all hover:cursor-pointer">
               <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -112,12 +94,12 @@ const App = () => {
             <SessionCard/>
             <SessionCard/> */}
             {chatSession.map((chatsession,idx) => (
-              <SessionCard title={chatsession.doc_title} session={chatsession.chat_session}/>
+              <SessionCard title={chatsession.doc_title} session={chatsession.chat_session} isOldChat={isOldChat}/>
             ))}
           </div>
         </div>
-        <div className='rightPanel'>
-            <div className='sticky flex justify-between items-center bg-rightPanel h-[10%] w-full'>
+        <div className={`rightPanel ${isloading==true ? 'bg-gray-500 bg-opacity-75 transition-opacity z-10':'bg-gray-100 bg-opacity-75 transition-opacity z-10'}`}>
+            <div className={`sticky flex justify-between items-center bg-rightPanel h-[10%] w-full`}>
               <p className='font-bold text-xl flex justify-center items-center'>
                 {
                   !sidebar && 
@@ -192,6 +174,26 @@ const App = () => {
             </div>
             <SearchBar sendDataToParent={pushMessage}/>
         </div>
+        {
+          isloading && 
+            <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
+              <MoonLoader
+                  color={"#FFFFFF"}
+                  cssOverride={{
+                    position:"absolute",
+                    top:"50%",
+                    marginTop:"-50px",
+                    marginLeft:"-50px",
+                    left:"50%",
+                    margin:"auto",
+                    zIndex:11
+                  }}
+                  aria-label="Loading Spinner"
+                  data-testid="loader"
+                  
+                />
+            </div>
+        }
     </main>
   )
 }
